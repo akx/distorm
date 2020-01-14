@@ -35,6 +35,9 @@ if sys.version_info[0] >= 3:
 
 def _get_distorm_lib_dirs():
     paths = []
+    env_dir = os.environ.get('LIBDISTORM3_DIR')
+    if env_dir:
+        paths.append(env_dir)
     if hasattr(sys, "oxidized"):
         paths.append("")
     if hasattr(sys, '_MEIPASS'):
