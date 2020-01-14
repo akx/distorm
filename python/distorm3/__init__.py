@@ -57,6 +57,14 @@ def _get_distorm_lib_names():
 
 
 def _load_distorm():
+    try:
+        # Gentle hack: if we've compiled distorm3 into a Python extension, we
+        # should be able to import it, then look at where it's coming from to
+        # load it using ctypes.
+        import _distorm3
+        return cdll.LoadLibrary(_distorm3.__spec__.origin)
+    except ImportError:
+        pass
     # Guess the DLL filename and load the library.
     directories = _get_distorm_lib_dirs()
     libnames = _get_distorm_lib_names()
