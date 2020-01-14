@@ -26,42 +26,55 @@ __all__ = [
 ]
 
 from ctypes import *
-from os.path import split, join
-from os import name as os_name
+import os
 import sys
 
 if sys.version_info[0] >= 3:
     xrange = range
 
+
+def _get_distorm_lib_dirs():
+    paths = []
+    if hasattr(sys, "oxidized"):
+        paths.append("")
+    if hasattr(sys, '_MEIPASS'):
+        paths.append(sys._MEIPASS)
+    try:
+        paths.append(os.path.dirname(__file__))
+    except NameError:
+        # In some containers __file__ isn't set.
+        pass
+    return paths
+
+
+def _get_distorm_lib_names():
+    if os.name == 'nt':
+        return ['distorm3.dll', 'libdistorm3.dll']
+    return ['libdistorm3.so', 'libdistorm3.dylib']
+
+
+def _load_distorm():
+    # Guess the DLL filename and load the library.
+    directories = _get_distorm_lib_dirs()
+    libnames = _get_distorm_lib_names()
+    exceptions = []
+    for dir in directories:
+        for name in libnames:
+            _distorm_file = os.path.join(dir, name)
+            try:
+                return cdll.LoadLibrary(_distorm_file)
+            except Exception as exc:
+                exceptions.append((_distorm_file, exc))
+    raise ImportError(
+        "Error loading the diStorm dynamic library (or cannot load library into process). "
+        "The following paths were attempted:\n" +
+        "\n".join(repr(e) for e in exceptions)
+    )
+
 #==============================================================================
 # Load the diStorm DLL
 
-# Guess the DLL filename and load the library.
-_distorm_path = None
-try:
-    _distorm_path = split(__file__)[0]
-except NameError:
-    # In some containers __file__ isn't set.
-    pass
-if hasattr(sys, "oxidized"):
-    _distorm_path = ""
-if hasattr(sys, '_MEIPASS'):
-    _distorm_path = sys._MEIPASS
-potential_libs = ['libdistorm3.so', 'libdistorm3.dylib']
-if os_name == 'nt':
-    potential_libs = ['distorm3.dll', 'libdistorm3.dll']
-lib_was_found = False
-for i in potential_libs:
-    try:
-        _distorm_file = join(_distorm_path, i)
-        _distorm = cdll.LoadLibrary(_distorm_file)
-        lib_was_found = True
-        break
-    except OSError:
-        pass
-
-if lib_was_found == False:
-    raise ImportError("Error loading the diStorm dynamic library (or cannot load library into process).")
+_distorm = _load_distorm()
 
 # Get the decode C function (try 64 bits version first, only then 32 bits).
 SUPPORT_64BIT_OFFSET = False
@@ -72,9 +85,9 @@ try:
     SUPPORT_64BIT_OFFSET = True
 except AttributeError:
     try:
-          internal_decode = _distorm.distorm_decode32
-          internal_decompose = _distorm.distorm_decompose32
-          internal_format = _distorm.distorm_format32
+        internal_decode = _distorm.distorm_decode32
+        internal_decompose = _distorm.distorm_decompose32
+        internal_format = _distorm.distorm_format32
     except AttributeError:
         raise ImportError("Error loading distorm")
 
